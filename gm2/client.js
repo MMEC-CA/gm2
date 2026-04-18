@@ -6,7 +6,16 @@ const resetButton = document.getElementById('resetButton');
 let gameState = { players: {} };
 let selfId = null;
 let socket = null;
-const inputs = { w: false, a: false, s: false, d: false };
+const inputs = {
+  w: false,
+  a: false,
+  s: false,
+  d: false,
+  ArrowUp: false,
+  ArrowDown: false,
+  ArrowLeft: false,
+  ArrowRight: false,
+};
 
 function connect() {
   statusDiv.textContent = 'Connecting to game...';
@@ -17,7 +26,7 @@ function connect() {
   socket = new WebSocket(wsUrl);
 
   socket.addEventListener('open', () => {
-    statusDiv.textContent = 'Connected! Use WASD to move the marble.';
+    statusDiv.textContent = 'Connected! Use WASD and Arrow Keys to move.';
   });
 
   socket.addEventListener('message', (event) => {
@@ -94,7 +103,7 @@ function draw() {
     ctx.arc(player.x, player.y, 10, 0, 2 * Math.PI);
     ctx.fill();
 
-    if (playerId === selfId) {
+    if (selfId && playerId.startsWith(selfId)) {
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
       ctx.strokeRect(10 + player.slot * 60, 10, 50, 50);

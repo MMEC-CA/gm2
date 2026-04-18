@@ -2,7 +2,7 @@ export class GameRoom {
   constructor(state, env) {
     this.state = state;
     this.sessions = [];
-    this.gameState = { players: {} }; // { sessionId: { slot, color, x, y } }
+    this.gameState = { players: {} }; // { playerId: { slot, color, x, y } }
   }
 
   async fetch(request) {
@@ -25,23 +25,29 @@ export class GameRoom {
     socket.accept();
 
     const sessionId = crypto.randomUUID();
-    this.sessions.push({ socket, id: sessionId });
+    const session = { socket, id: sessionId, playerIds: [] };
+    this.sessions.push(session);
 
-    const availableSlots = [0, 1, 2, 3];
-    const takenSlots = Object.values(this.gameState.players).map(p => p.slot);
-    const nextSlot = availableSlots.find(s => !takenSlots.includes(s));
+    // Let's create two players for this session if slots are available
+    for (let i = 0; i < 2; i++) {
+      const availableSlots = [0, 1, 2, 3];
+      const takenSlots = Object.values(this.gameState.players).map(p => p.slot);
+      const nextSlot = availableSlots.find(s => !takenSlots.includes(s));
 
-    // Initialize player state
-    if (nextSlot !== undefined) {
-      this.gameState.players[sessionId] = {
-        slot: nextSlot,
-        color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
-        x: 100 + Math.random() * 600,
-        y: 100 + Math.random() * 400,
-      };
+      if (nextSlot !== undefined) {
+        const playerId = `${sessionId}-${i}`;
+        session.playerIds.push(playerId);
+        this.gameState.players[playerId] = {
+          slot: nextSlot,
+          color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+          x: 100 + Math.random() * 600,
+          y: 100 + Math.random() * 400,
+        };
+      }
     }
 
     // Send the initial state to the new client
+    // The client will identify its players based on the session ID prefix.
     socket.send(JSON.stringify({ type: 'init', state: this.gameState, selfId: sessionId }));
 
     // Broadcast the updated state to all clients
@@ -51,7 +57,7 @@ export class GameRoom {
       try {
         const data = JSON.parse(message.data);
         if (data.type === 'input') {
-          this.handleInput(sessionId, data.inputs);
+          this.handleInput(session.playerIds, data.inputs);
           this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
         } else if (data.type === 'reset') {
           this.resetGame();
@@ -63,33 +69,36 @@ export class GameRoom {
     });
 
     socket.addEventListener('close', () => {
-      this.removeSession(sessionId);
+      this.removeSession(session);
       this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
     });
 
     socket.addEventListener('error', (err) => {
       console.error('Socket error:', err);
-      this.removeSession(sessionId);
+      this.removeSession(session);
       this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
     });
   }
 
-  handleInput(sessionId, inputs) {
-    const player = this.gameState.players[sessionId];
-    if (!player) return;
-
+  handleInput(playerIds, inputs) {
     const speed = 5;
-    if (inputs.w) {
-      player.y -= speed;
+
+    // Handle WASD for the first player
+    const player1 = this.gameState.players[playerIds[0]];
+    if (player1) {
+      if (inputs.w) player1.y -= speed;
+      if (inputs.s) player1.y += speed;
+      if (inputs.a) player1.x -= speed;
+      if (inputs.d) player1.x += speed;
     }
-    if (inputs.s) {
-      player.y += speed;
-    }
-    if (inputs.a) {
-      player.x -= speed;
-    }
-    if (inputs.d) {
-      player.x += speed;
+
+    // Handle Arrow keys for the second player
+    const player2 = this.gameState.players[playerIds[1]];
+    if (player2) {
+      if (inputs.ArrowUp) player2.y -= speed;
+      if (inputs.ArrowDown) player2.y += speed;
+      if (inputs.ArrowLeft) player2.x -= speed;
+      if (inputs.ArrowRight) player2.x += speed;
     }
   }
 
@@ -108,15 +117,16 @@ export class GameRoom {
         return true;
       } catch (e) {
         console.log('Failed to send to a session, removing it.');
-        // If send fails, the socket is likely closed. Remove it.
-        delete this.gameState.players[session.id];
+        this.removeSession(session);
         return false;
       }
     });
   }
 
-  removeSession(sessionId) {
-    delete this.gameState.players[sessionId];
-    this.sessions = this.sessions.filter((s) => s.id !== sessionId);
+  removeSession(session) {
+    session.playerIds.forEach(playerId => {
+      delete this.gameState.players[playerId];
+    });
+    this.sessions = this.sessions.filter((s) => s.id !== session.id);
   }
 }
