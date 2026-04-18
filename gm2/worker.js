@@ -8,6 +8,10 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+import { GameRoom } from './GameRoom.js';
+
+export { GameRoom };
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
