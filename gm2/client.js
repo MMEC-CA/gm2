@@ -12,8 +12,9 @@ function connect() {
   statusDiv.textContent = 'Connecting to game...';
 
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProtocol}//${window.location.host}/api/game`;
-  const socket = new WebSocket(wsUrl);
+  const gameId = new URLSearchParams(window.location.search).get('gameId');
+  const wsUrl = `${wsProtocol}//${window.location.host}/gm2/api/game?gameId=${gameId}`;
+  socket = new WebSocket(wsUrl);
 
   socket.addEventListener('open', () => {
     statusDiv.textContent = 'Connected! Use WASD to move the marble.';
@@ -22,7 +23,7 @@ function connect() {
   socket.addEventListener('message', (event) => {
     const message = JSON.parse(event.data);
     if (message.type === 'init') {
-      selfId = message.sessionId;
+      selfId = message.selfId;
       gameState = message.state;
     } else if (message.type === 'update') {
       gameState = message.gameState;
@@ -91,7 +92,7 @@ function draw() {
     if (id === selfId) {
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
-      ctx.stroke();
+      ctx.strokeRect(10 + player.slot * 60, 10, 50, 50);
     }
   }
 

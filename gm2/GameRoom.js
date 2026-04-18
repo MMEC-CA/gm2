@@ -4,6 +4,7 @@ export class GameRoom {
     this.sessions = [];
     this.gameState = {
       players: {}, // { sessionId: { x, y, color } }
+      marble: { x: 150, y: 150 },
     };
   }
 
@@ -29,22 +30,30 @@ export class GameRoom {
     const sessionId = crypto.randomUUID();
     this.sessions.push({ socket, id: sessionId });
 
+    const availableSlots = [0, 1, 2, 3];
+    const takenSlots = Object.values(this.gameState.players).map(p => p.slot);
+    const nextSlot = availableSlots.find(s => !takenSlots.includes(s));
+
     // Initialize player state
-    this.gameState.players[sessionId] = {
-      x: 50 + Math.random() * 100, // Start near the line
-      y: 200,
-      color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
-    };
+    if (nextSlot !== undefined) {
+      this.gameState.players[sessionId] = {
+        slot: nextSlot,
+        color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+      };
+    }
 
     // Send the initial state to the new client
-    socket.send(JSON.stringify({ type: 'state', state: this.gameState, selfId: sessionId }));
+    socket.send(JSON.stringify({ type: 'init', state: this.gameState, selfId: sessionId }));
+
+    // Broadcast the updated state to all clients
+    this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
 
     socket.addEventListener('message', async (message) => {
       try {
         const data = JSON.parse(message.data);
         if (data.type === 'input') {
-          this.handleInput(sessionId, data.key);
-          this.broadcast(JSON.stringify({ type: 'state', state: this.gameState }));
+          this.handleInput(sessionId, data.inputs);
+          this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
         }
       } catch (e) {
         console.error('Error parsing message:', e);
@@ -53,36 +62,32 @@ export class GameRoom {
 
     socket.addEventListener('close', () => {
       this.removeSession(sessionId);
-      delete this.gameState.players[sessionId];
-      this.broadcast(JSON.stringify({ type: 'state', state: this.gameState }));
+      this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
     });
 
     socket.addEventListener('error', (err) => {
       console.error('Socket error:', err);
       this.removeSession(sessionId);
-      delete this.gameState.players[sessionId];
-      this.broadcast(JSON.stringify({ type: 'state', state: this.gameState }));
+      this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
     });
   }
 
-  handleInput(sessionId, key) {
-    const player = this.gameState.players[sessionId];
-    if (!player) return;
+  handleInput(sessionId, inputs) {
+    const marble = this.gameState.marble;
+    if (!marble) return;
 
     const speed = 5;
-    switch (key) {
-      case 'ArrowUp':
-        player.y -= speed;
-        break;
-      case 'ArrowDown':
-        player.y += speed;
-        break;
-      case 'ArrowLeft':
-        player.x -= speed;
-        break;
-      case 'ArrowRight':
-        player.x += speed;
-        break;
+    if (inputs.w) {
+      marble.y -= speed;
+    }
+    if (inputs.s) {
+      marble.y += speed;
+    }
+    if (inputs.a) {
+      marble.x -= speed;
+    }
+    if (inputs.d) {
+      marble.x += speed;
     }
   }
 
@@ -101,6 +106,7 @@ export class GameRoom {
   }
 
   removeSession(sessionId) {
+    delete this.gameState.players[sessionId];
     this.sessions = this.sessions.filter((s) => s.id !== sessionId);
   }
 }

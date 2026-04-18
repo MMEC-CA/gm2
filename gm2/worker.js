@@ -13,30 +13,29 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Serve the static assets from the pages build output directory
-    if (path.startsWith('/gm2/')) {
-      // This request is for a static asset.
-      // In a real-world scenario, you'd serve files from the `pages_build_output_dir`.
-      // However, in this integrated environment, we let the default Pages handling serve it.
-      // This block is conceptually important for local testing (`wrangler dev`).
-      return env.ASSETS.fetch(request);
-    }
-
     // Handle WebSocket upgrade requests for game rooms.
-    if (path.startsWith('/api/game/')) {
-      const gameId = path.split('/')[3];
+    if (path.startsWith('/gm2/api/game')) {
+      const gameId = url.searchParams.get('gameId');
       if (!gameId) {
         return new Response('Invalid game ID', { status: 400 });
       }
-
       const id = env.GAME_ROOM.idFromName(gameId);
       const stub = env.GAME_ROOM.get(id);
 
       return stub.fetch(request);
     }
 
+    // Serve the static assets from the pages build output directory
+    if (path.startsWith('/gm2/')) {
+      // Create a new request with the /gm2/ prefix removed for asset matching
+      const assetPath = path.substring(4) || '/'; // /gm2/ -> /
+      const assetUrl = new URL(assetPath, request.url);
+      const assetRequest = new Request(assetUrl, request);
+      return env.ASSETS.fetch(assetRequest);
+    }
+
     // For the root path, redirect to a new game lobby.
-    if (path === '/gm2/' || path === '/gm2') {
+    if (path === '/' || path === '/gm2' || path === '/gm2/') {
       const newGameId = crypto.randomUUID();
       return Response.redirect(`${url.origin}/gm2/index.html?gameId=${newGameId}`, 302);
     }
