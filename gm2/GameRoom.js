@@ -2,10 +2,7 @@ export class GameRoom {
   constructor(state, env) {
     this.state = state;
     this.sessions = [];
-    this.gameState = {
-      players: {}, // { sessionId: { x, y, color } }
-      marble: { x: 150, y: 150 },
-    };
+    this.gameState = { players: {} }; // { sessionId: { slot, color, x, y } }
   }
 
   async fetch(request) {
@@ -39,6 +36,8 @@ export class GameRoom {
       this.gameState.players[sessionId] = {
         slot: nextSlot,
         color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+        x: 100 + Math.random() * 600,
+        y: 100 + Math.random() * 400,
       };
     }
 
@@ -53,6 +52,9 @@ export class GameRoom {
         const data = JSON.parse(message.data);
         if (data.type === 'input') {
           this.handleInput(sessionId, data.inputs);
+          this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
+        } else if (data.type === 'reset') {
+          this.resetGame();
           this.broadcast(JSON.stringify({ type: 'update', gameState: this.gameState }));
         }
       } catch (e) {
@@ -73,21 +75,29 @@ export class GameRoom {
   }
 
   handleInput(sessionId, inputs) {
-    const marble = this.gameState.marble;
-    if (!marble) return;
+    const player = this.gameState.players[sessionId];
+    if (!player) return;
 
     const speed = 5;
     if (inputs.w) {
-      marble.y -= speed;
+      player.y -= speed;
     }
     if (inputs.s) {
-      marble.y += speed;
+      player.y += speed;
     }
     if (inputs.a) {
-      marble.x -= speed;
+      player.x -= speed;
     }
     if (inputs.d) {
-      marble.x += speed;
+      player.x += speed;
+    }
+  }
+
+  resetGame() {
+    for (const playerId in this.gameState.players) {
+      const player = this.gameState.players[playerId];
+      player.x = 100 + Math.random() * 600;
+      player.y = 100 + Math.random() * 400;
     }
   }
 

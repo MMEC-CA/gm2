@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 const statusDiv = document.getElementById('status');
 const resetButton = document.getElementById('resetButton');
 
-let gameState = { players: {}, marble: { x: 0, y: 0 } };
+let gameState = { players: {} };
 let selfId = null;
 let socket = null;
 const inputs = { w: false, a: false, s: false, d: false };
@@ -84,23 +84,22 @@ function draw() {
   }
 
   // Draw players
-  for (const id in gameState.players) {
-    const player = gameState.players[id];
-    ctx.fillStyle = player.color;
-    ctx.fillRect(10 + player.slot * 60, 10, 50, 50);
+  for (const playerId in gameState.players) {
+    const player = gameState.players[playerId];
+    ctx.fillStyle = player.color; // Use player's color for their marble
+    ctx.fillRect(10 + player.slot * 60, 10, 50, 50); // Draw player in their slot
 
-    if (id === selfId) {
+    // Draw the player's marble on the canvas
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 10, 0, 2 * Math.PI);
+    ctx.fill();
+
+    if (playerId === selfId) {
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
       ctx.strokeRect(10 + player.slot * 60, 10, 50, 50);
     }
   }
-
-  // Draw marble
-  ctx.beginPath();
-  ctx.arc(gameState.marble.x, gameState.marble.y, 10, 0, 2 * Math.PI);
-  ctx.fillStyle = 'black';
-  ctx.fill();
 }
 
 socket = connect();
