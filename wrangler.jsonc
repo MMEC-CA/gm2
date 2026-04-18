@@ -12,6 +12,9 @@
       { "name": "GAME_ROOM", "class_name": "GameRoom" }
     ]
   },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["GameRoom"] }
+  ],
   "routes": [
     {
       "pattern": "erd.mmec.ca/gm2/*",
