@@ -6,21 +6,10 @@ let gameState = { players: {} };
 let selfId = null;
 
 function connect() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const gameId = urlParams.get('gameId');
-
-  if (!gameId) {
-    statusDiv.textContent = 'No game ID found. Redirecting...';
-    // In a real scenario, you might redirect to a lobby page.
-    // For now, we just show an error.
-    window.location.href = '/gm2/'; // Redirect to get a new gameId
-    return;
-  }
-
-  statusDiv.textContent = `Connecting to game ${gameId}...`;
+  statusDiv.textContent = 'Connecting to game...';
 
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProtocol}//${window.location.host}/api/game/${gameId}`;
+  const wsUrl = `${wsProtocol}//${window.location.host}/api/game`;
   const socket = new WebSocket(wsUrl);
 
   socket.addEventListener('open', () => {
